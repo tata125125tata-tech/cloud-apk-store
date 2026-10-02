@@ -1,0 +1,6 @@
+{
+  "name": "Cosmo Cloud Manager",
+  "description": "Mobile Cloudflare R2 manager with chunked multipart background uploads, foreground service, file browser, and GitHub Actions build workflow.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
