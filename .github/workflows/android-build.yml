@@ -3,6 +3,7 @@ name: Android CI/CD - Cosmo Cloud Manager
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
@@ -16,37 +17,110 @@ on:
           - debug
           - release
           - both
+      publish_release:
+        description: 'Publish direct APK to GitHub Releases?'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
 
 jobs:
   build-debug:
-    name: Build Debug APK
+    name: Build Debug APK & Publish Release
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both'
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Generate Debug Keystore if missing
+        run: |
+          if [ ! -f debug.keystore ]; then
+            echo "Generating debug.keystore for APK signing..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
-      - name: Upload Debug APK Artifact
+      - name: Create .env if missing
+        run: |
+          if [ ! -f .env ]; then
+            cp .env.example .env 2>/dev/null || touch .env
+          fi
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Prepare Named APK Artifacts
+        run: |
+          mkdir -p build-artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk build-artifacts/CosmoCloud-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk build-artifacts/app-debug.apk
+          echo "Debug APK generated successfully:"
+          ls -lh build-artifacts/
+
+      - name: Upload Debug APK Artifact (GitHub Actions Artifact)
         uses: actions/upload-artifact@v4
         with:
           name: cosmo-cloud-manager-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: build-artifacts/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish Direct APK to GitHub Releases
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))) || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release != 'false')
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            RELEASE_TAG="${GITHUB_REF#refs/tags/}"
+          else
+            RELEASE_TAG="latest"
+          fi
+          
+          echo "Target Release Tag: $RELEASE_TAG"
+
+          RELEASE_TITLE="Cosmo Cloud Manager ($RELEASE_TAG)"
+          RELEASE_BODY="## 🚀 Cosmo Cloud Manager - Android APK
+
+          Direct 1-click APK download for Android devices:
+
+          ### 📱 Direct Downloads
+          - **[CosmoCloud-debug.apk](https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/CosmoCloud-debug.apk)** (Direct APK download)
+
+          ---
+          ### 📦 Build Details
+          - **Repository**: \`${{ github.repository }}\`
+          - **Commit**: \`${{ github.sha }}\`
+          - **Branch / Tag**: \`${{ github.ref_name }}\`
+          - **Built by**: GitHub Actions CI/CD pipeline
+          - **Features**: Multipart chunked R2 upload (10 MB parts), Android Foreground Service, auto-resume, image gallery, and file manager."
+
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists. Uploading/clobbering APK asset..."
+            gh release upload "$RELEASE_TAG" build-artifacts/CosmoCloud-debug.apk --clobber || true
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes "$RELEASE_BODY" || true
+          else
+            echo "Creating new release $RELEASE_TAG..."
+            gh release create "$RELEASE_TAG" build-artifacts/CosmoCloud-debug.apk \
+              --title "$RELEASE_TITLE" \
+              --notes "$RELEASE_BODY" \
+              $([ "$RELEASE_TAG" = "latest" ] && echo "--prerelease=false" || echo "") || true
+          fi
 
   build-release:
     name: Build Signed Release APK
@@ -57,15 +131,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
+
+      - name: Generate Debug Keystore if missing
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Create .env if missing
+        run: |
+          if [ ! -f .env ]; then
+            cp .env.example .env 2>/dev/null || touch .env
+          fi
 
       - name: Decode Release Keystore (if secrets provided)
         id: keystore
@@ -87,19 +173,31 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          mkdir -p build-release-artifacts
           if [ "${{ steps.keystore.outputs.has_keystore }}" = "true" ]; then
-            ./gradlew assembleRelease --stacktrace
+            ./gradlew assembleRelease --stacktrace --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk build-release-artifacts/CosmoCloud-release.apk
           else
             echo "Falling back to debug build as release keystore secrets are missing."
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew assembleDebug --stacktrace --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk build-release-artifacts/CosmoCloud-debug.apk
           fi
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: cosmo-cloud-manager-release-apk
-          path: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/apk/debug/app-debug.apk
+          path: build-release-artifacts/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Attach Release APK to GitHub Release
+        if: github.event.inputs.publish_release != 'false'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="latest"
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" build-release-artifacts/* --clobber || true
+          fi

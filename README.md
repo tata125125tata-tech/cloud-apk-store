@@ -1,9 +1,53 @@
 # Cosmo Cloud Manager 🚀
-*A mobile Cloudflare R2 bucket manager with chunked multipart background uploads, resilient streaming, and automated GitHub Actions APK builds.*
+*A mobile Cloudflare R2 bucket manager with chunked multipart background uploads, resilient streaming, and automated GitHub Actions & GitHub Releases APK publishing.*
 
 ---
 
-## 1. Project Overview
+### 📦 Repository & Direct APK Download
+
+[![Direct APK Download](https://img.shields.io/badge/Direct%20Download-CosmoCloud--debug.apk-00E5FF?style=for-the-badge&logo=android)](https://github.com/tata125125tata-tech/cloud-apk-store/releases/latest/download/CosmoCloud-debug.apk)
+[![GitHub Actions Build](https://img.shields.io/github/actions/workflow/status/tata125125tata-tech/cloud-apk-store/android-build.yml?branch=main&label=APK%20Build&style=for-the-badge)](https://github.com/tata125125tata-tech/cloud-apk-store/actions)
+[![Latest Release](https://img.shields.io/github/v/release/tata125125tata-tech/cloud-apk-store?style=for-the-badge)](https://github.com/tata125125tata-tech/cloud-apk-store/releases/latest)
+
+> **📱 Direct Mobile Download Link:**  
+> **[https://github.com/tata125125tata-tech/cloud-apk-store/releases/latest/download/CosmoCloud-debug.apk](https://github.com/tata125125tata-tech/cloud-apk-store/releases/latest/download/CosmoCloud-debug.apk)**  
+> *(Click this link from your Android browser to download and install `CosmoCloud-debug.apk` directly without needing to unzip any GitHub Actions artifacts!)*
+
+---
+
+## 1. Quick Start: Push to `tata125125tata-tech/cloud-apk-store`
+
+To trigger the automated GitHub Actions build and generate the direct download APK:
+
+```bash
+# Initialize git if not already done
+git init
+
+# Stage all files (including .github/workflows, gradlew, and source code)
+git add .
+
+# Commit
+git commit -m "Initialize Cosmo Cloud Manager with GitHub Actions APK builder"
+
+# Set default branch to main
+git branch -M main
+
+# Link to your GitHub repository
+git remote add origin https://github.com/tata125125tata-tech/cloud-apk-store.git
+
+# Push to GitHub (use --force if repository was initialized with a README/license)
+git push -u origin main --force
+```
+
+Once pushed:
+1. GitHub Actions automatically starts running the workflow in **Actions**.
+2. Gradle compiles the Android project and generates `CosmoCloud-debug.apk`.
+3. The workflow automatically publishes a **GitHub Release (`latest`)** with the direct APK attachment.
+4. Anyone can download and install the APK directly from the release page!
+
+---
+
+## 2. Project Overview
 
 **Cosmo Cloud Manager** is a native Android application built using Kotlin and Jetpack Compose. It allows developers and users to manage Cloudflare R2 object storage directly from their Android devices through a serverless Cloudflare Worker API.
 
@@ -14,11 +58,13 @@
 - **Offline Resumption**: Upload metadata is stored in a local SQLite/Room database. Interrupted uploads automatically resume from the last completed part.
 - **File & Image Browser**: Native support for APK, XAPK, APKM, APKS, ZIP, JPG, PNG, WEBP, and GIF files with search, sort, and category filtering.
 - **Immediate Public URLs**: View, copy, and share public CDN links upon upload completion.
-- **Android App Builder & GitHub Actions Workflow**: Designed to be exported from Android App Builders, pushed to GitHub, and built automatically into downloadable APK artifacts via GitHub Actions.
+- **Dual APK Distribution**:
+  - **GitHub Releases**: Direct 1-click `.apk` download link for end users.
+  - **GitHub Actions Artifacts**: Downloadable build artifact bundle for CI tracking.
 
 ---
 
-## 2. Architecture
+## 3. Architecture
 
 ```text
 +-----------------------+
@@ -38,27 +84,17 @@
 +-----------------------+
 ```
 
-### GitHub Actions CI/CD Pipeline:
+### Automated GitHub CI/CD Pipeline:
 ```text
 Android App Builder
         ↓  (Export Source)
-GitHub Repository
-        ↓  (git push)
-GitHub Actions Workflow (.github/workflows/android-build.yml)
-        ↓  (Gradle assembleDebug / assembleRelease)
-APK Artifacts
-        ↓
-Downloadable Build Artifact (cosmo-cloud-manager-debug-apk)
+GitHub Repository (tata125125tata-tech/cloud-apk-store)
+        ↓  (git push main)
+GitHub Actions (.github/workflows/android-build.yml)
+        ↓  (./gradlew assembleDebug)
+        ├──► GitHub Actions Artifact (cosmo-cloud-manager-debug-apk)
+        └──► GitHub Release (latest) ──► Direct 1-Click APK Download (CosmoCloud-debug.apk)
 ```
-
----
-
-## 3. Android App Builder Import
-
-1. **Direct Import**: Cosmo Cloud Manager uses standard Android Gradle conventions (AGP 9.1+, Kotlin Compose plugin, Jetpack Compose BOM, Room KSP).
-2. Simply open or import the root project directory in your Android App Builder or Android Studio.
-3. No proprietary build plugins or server-side build steps are required.
-4. You do **not** need Cloudflare credentials during the APK build.
 
 ---
 
@@ -71,8 +107,8 @@ Downloadable Build Artifact (cosmo-cloud-manager-debug-apk)
 ### Commands
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/cosmo-cloud-manager.git
-cd cosmo-cloud-manager
+git clone https://github.com/tata125125tata-tech/cloud-apk-store.git
+cd cloud-apk-store
 
 # Grant execution permission to Gradle Wrapper
 chmod +x gradlew
@@ -86,54 +122,42 @@ chmod +x gradlew
 
 ---
 
-## 5. GitHub Repository Setup
-
-When pushing this project to GitHub, ensure that:
-1. `.gitignore` ignores `build/`, `.gradle/`, and `local.properties`.
-2. Gradle Wrapper files (`gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar`, `gradle/wrapper/gradle-wrapper.properties`) are committed so GitHub Actions can execute Gradle.
-3. Sensitive keys and keystores are **never** committed to Git.
-
-```bash
-git init
-git add .
-git commit -m "Initial commit of Cosmo Cloud Manager"
-git branch -M main
-git remote add origin https://github.com/your-username/cosmo-cloud-manager.git
-git push -u origin main
-```
-
----
-
-## 6. GitHub Actions Workflow
+## 5. GitHub Actions Workflow Configuration
 
 The automated build workflow is configured in `.github/workflows/android-build.yml`.
 
 ### Triggers
 - Automatic on every `push` to `main` or `master`.
+- Automatic on release tags `v*` (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
 - Automatic on every `pull_request` targeting `main` or `master`.
-- Manual trigger via `workflow_dispatch` with an option to select build type (`debug`, `release`, or `both`).
+- Manual trigger via `workflow_dispatch` with an option to select build type (`debug`, `release`, or `both`) and choose whether to publish to GitHub Releases.
 
-### What the Workflow Does:
-1. Checks out the repository.
-2. Sets up JDK 17 with Gradle dependency caching.
-3. Makes `gradlew` executable.
-4. Executes `./gradlew assembleDebug --stacktrace`.
-5. Uploads `app/build/outputs/apk/debug/app-debug.apk` as a GitHub Actions build artifact named `cosmo-cloud-manager-debug-apk`.
-
----
-
-## 7. Downloading the APK Artifact from GitHub
-
-1. Open your repository on GitHub.
-2. Click on the **Actions** tab.
-3. Click on the latest workflow run (e.g., *"Android CI/CD - Cosmo Cloud Manager"*).
-4. Scroll down to the **Artifacts** section at the bottom of the page.
-5. Click on **`cosmo-cloud-manager-debug-apk`** to download the ZIP file containing `app-debug.apk`.
-6. Transfer or install the APK on any Android phone (Android 7.0 / SDK 24+).
+### Release Permissions
+The workflow includes:
+```yaml
+permissions:
+  contents: write
+```
+This grants GitHub Actions permission to create or update the GitHub Release using the default `GITHUB_TOKEN` without requiring any third-party tokens or setup.
 
 ---
 
-## 8. Release Signing & GitHub Secrets
+## 6. Downloading the Built APK
+
+### Option A: Direct Download via GitHub Releases (Recommended for Phones)
+1. Navigate to: **[https://github.com/tata125125tata-tech/cloud-apk-store/releases/latest](https://github.com/tata125125tata-tech/cloud-apk-store/releases/latest)**
+2. Click **`CosmoCloud-debug.apk`**.
+3. The APK will download directly to your Android device and can be installed immediately.
+
+### Option B: Download via GitHub Actions Artifacts
+1. Go to the **Actions** tab in your repository: [https://github.com/tata125125tata-tech/cloud-apk-store/actions](https://github.com/tata125125tata-tech/cloud-apk-store/actions)
+2. Click on the latest workflow run.
+3. Scroll down to the **Artifacts** section at the bottom.
+4. Click on **`cosmo-cloud-manager-debug-apk`** to download the ZIP file containing `CosmoCloud-debug.apk`.
+
+---
+
+## 7. Release Signing & GitHub Secrets (Optional)
 
 To generate production-signed release APKs automatically:
 
@@ -144,15 +168,15 @@ keytool -genkey -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysiz
 
 ### 2. Encode Keystore to Base64:
 ```bash
-# On Linux/macOS:
+# Linux/macOS:
 base64 -w 0 my-upload-key.jks > keystore_base64.txt
 
-# On Windows PowerShell:
+# Windows PowerShell:
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("my-upload-key.jks")) | Out-File -Encoding ASCII keystore_base64.txt
 ```
 
 ### 3. Add GitHub Repository Secrets:
-Go to your GitHub repository -> **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**:
+Go to **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**:
 
 | Secret Name | Value |
 |---|---|
@@ -161,15 +185,13 @@ Go to your GitHub repository -> **Settings** -> **Secrets and variables** -> **A
 | `KEY_ALIAS` | `upload` (or your chosen alias) |
 | `KEY_PASSWORD` | Password for the key alias |
 
-### 4. Run Release Build:
+### 4. Trigger Release Build:
 Go to **Actions** -> Select **Android CI/CD** -> Click **Run workflow** -> Select `release` or `both`.
-The signed APK will be uploaded as `cosmo-cloud-manager-release-apk`.
-
-*Note: If release secrets are not configured, GitHub Actions gracefully continues building the debug APK without failing.*
+The signed APK will be uploaded to GitHub Releases as `CosmoCloud-release.apk`.
 
 ---
 
-## 9. Worker URL Configuration
+## 8. Worker URL Configuration
 
 The Android application comes preconfigured with the developer Worker endpoint:
 ```text
@@ -186,110 +208,7 @@ You can change this anytime inside the app:
 
 ---
 
-## 10. Cloudflare Worker API Specification
-
-The Android app expects the following endpoints from your Cloudflare Worker:
-
-### `GET /health` or `GET /status`
-Returns:
-```json
-{
-  "status": "ok",
-  "bucket": "my-r2-bucket",
-  "version": "v1"
-}
-```
-
-### `GET /files`
-Returns:
-```json
-{
-  "files": [
-    {
-      "key": "games/CosmoRacer.apk",
-      "size": 157286400,
-      "uploaded": 1727827200000,
-      "etag": "0123456789abcdef",
-      "contentType": "application/vnd.android.package-archive",
-      "url": "https://pub.example.com/games/CosmoRacer.apk"
-    }
-  ]
-}
-```
-
-### `POST /init`
-Initiates a multipart upload.
-Request JSON:
-```json
-{
-  "filename": "MyGame.apk",
-  "fileSize": 314572800,
-  "contentType": "application/vnd.android.package-archive"
-}
-```
-Response JSON:
-```json
-{
-  "uploadId": "ib7q3...",
-  "key": "MyGame.apk"
-}
-```
-
-### `PUT /part?uploadId=...&partNumber=...&key=...`
-Uploads a binary chunk.
-Headers:
-- `X-Upload-Id`: uploadId
-- `X-Part-Number`: partNumber
-- `X-Key`: key
-- `Content-Type`: `application/octet-stream`
-
-Response JSON:
-```json
-{
-  "partNumber": 1,
-  "etag": "c01824..."
-}
-```
-
-### `POST /complete`
-Finalizes the multipart upload in R2.
-Request JSON:
-```json
-{
-  "uploadId": "ib7q3...",
-  "key": "MyGame.apk",
-  "parts": [
-    { "partNumber": 1, "etag": "etag1" },
-    { "partNumber": 2, "etag": "etag2" }
-  ]
-}
-```
-Response JSON:
-```json
-{
-  "success": true,
-  "url": "https://pub.example.com/MyGame.apk",
-  "key": "MyGame.apk",
-  "size": 314572800
-}
-```
-
-### `POST /abort`
-Aborts an in-progress multipart upload and cleans up chunks.
-Request JSON:
-```json
-{
-  "uploadId": "ib7q3...",
-  "key": "MyGame.apk"
-}
-```
-
-### `DELETE /files/:key` or `POST /delete`
-Deletes the object from R2.
-
----
-
-## 11. Reference Cloudflare Worker Implementation (`worker.js`)
+## 9. Reference Cloudflare Worker Implementation (`worker.js`)
 
 Below is the standard Cloudflare Worker script that connects to your R2 bucket (`MY_BUCKET` binding):
 
@@ -429,18 +348,5 @@ export default {
 
 ---
 
-## 12. Troubleshooting
-
-| Issue | Cause | Solution |
-|---|---|---|
-| **Worker Offline / Red indicator** | Incorrect URL or Worker asleep | Go to Settings, verify the Worker URL, and tap "Test Connection (Ping)". |
-| **HTTP 401 Unauthorized** | Worker requires an Auth Token | In Settings, enter your Worker Auth Token. |
-| **HTTP 413 Payload Too Large** | Chunk size exceeds Cloudflare limits | In Settings, switch the chunk size to 5 MB or 10 MB. |
-| **Foreground notification not showing** | Notification permission not granted | Open Android App Info -> Notifications -> Turn notifications ON. |
-| **Upload stopped after phone sleep** | Battery optimization killing background process | Android Foreground Service uses `WAKE_LOCK` and `dataSync`; ensure battery optimization is set to "Unrestricted" for large multi-GB transfers. |
-| **GitHub Actions build fails on gradlew** | Permission denied | Ensure `chmod +x gradlew` is executed in the repository. |
-
----
-
-## 13. License
+## 10. License
 Cosmo Cloud Manager is open source under the MIT License.
